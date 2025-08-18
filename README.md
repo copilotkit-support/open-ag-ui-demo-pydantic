@@ -1,4 +1,4 @@
-# open-ag-ui-demo
+# open-ag-ui-demo-pydantic
 ![Demo](assets/example.gif)
 
 A demo project with a Next.js frontend and a FastAPI-based backend agent for stock analysis and chat.
@@ -20,12 +20,12 @@ Create a `.env` file in each relevant directory as needed.
 
 #### Backend (`agent/.env`):
 ```env
-OPENAI_API_KEY=<<your-gemini-key-here>>
+OPENAI_API_KEY=<<your-openai-key-here>>
 ```
 
 #### Frontend (`frontend/.env`):
 ```env
-OPENAI_API_KEY=<<your-gemini-key-here>>
+OPENAI_API_KEY=<<your-openai-key-here>>
 ```
 
 ---
@@ -58,4 +58,4 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to view the 
 
 ---
 
-### Hosted URL : https://open-ag-ui-demo-pydantic   .vercel.app/
+### Hosted URL : https://open-ag-ui-demo-pydantic.vercel.app/
