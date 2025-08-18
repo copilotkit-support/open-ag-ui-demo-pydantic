@@ -198,8 +198,9 @@ class chat_node(BaseNode[AgentState]):
         )
         await asyncio.sleep(0)
         model = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        ctx.state.messages[0].content = system_prompt.replace("{PORTFOLIO_DATA_PLACEHOLDER}",json.dumps(ctx.state.investment_portfolio))
         response = model.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4.1-mini",
             messages= ctx.state.messages,
             tools=[extract_relevant_data_from_user_prompt]
         )
