@@ -48,7 +48,7 @@ export function BarChartComponent({ data, size = "normal", onClick }: BarChartCo
                 // @ts-ignore
                 onClick?.(data.payload.ticker as string)
               }
-            }} dataKey="return" fill="#86ECE4" radius={[2, 2, 0, 0]} />
+            }} dataKey="return" fill="#e92063" radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

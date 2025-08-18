@@ -22,8 +22,6 @@ export function PromptPanel({ availableCash }: PromptPanelProps) {
     }).format(amount)
   }
 
-
-
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}

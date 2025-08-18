@@ -20,28 +20,14 @@ from ag_ui.core import (
     StateDeltaEvent
 )
 from ag_ui.encoder import EventEncoder
-from stock_analysis import agent_graph
+from stock_analysis import stock_analysis_graph, AgentState, chat_node
 from copilotkit import CopilotKitState
-
 app = FastAPI()
 
 
-class AgentState(CopilotKitState):
-    """
-    This is the state of the agent.
-    It is a subclass of the MessagesState class from langgraph.
-    """
 
-    tools: list
-    messages: list
-    be_stock_data: Any
-    be_arguments: dict
-    available_cash: int
-    investment_summary : dict
-    tool_logs : list
-
-@app.post("/langgraph-agent")
-async def langgraph_agent(input_data: RunAgentInput):
+@app.post("/pydantic-agent")
+async def pydantic_agent(input_data: RunAgentInput):
     try:
 
         async def event_generator():
@@ -79,14 +65,14 @@ async def langgraph_agent(input_data: RunAgentInput):
                 be_arguments=None,
                 available_cash=input_data.state["available_cash"],
                 investment_portfolio=input_data.state["investment_portfolio"],
-                tool_logs=[]
+                tool_logs=[],
+                investment_summary = input_data.state["investment_summary"],
+                emit_event=emit_event
             )
-            agent = await agent_graph()
+            # agent_task = await stock_analysis_graph.run(start_node=chat_node(), state=state)
 
             agent_task = asyncio.create_task(
-                agent.ainvoke(
-                    state, config={"emit_event": emit_event, "message_id": message_id}
-                )
+                stock_analysis_graph.run(start_node=chat_node(), state=state)
             )
             while True:
                 try:
@@ -109,14 +95,14 @@ async def langgraph_agent(input_data: RunAgentInput):
                 ]
             )
             )
-            if state["messages"][-1].role == "assistant":
-                if state["messages"][-1].tool_calls:
+            if state.messages[-1].role == "assistant":
+                if state.messages[-1].tool_calls:
                     # for tool_call in state['messages'][-1].tool_calls:
                     yield encoder.encode(
                         ToolCallStartEvent(
                             type=EventType.TOOL_CALL_START,
-                            tool_call_id=state["messages"][-1].tool_calls[0].id,
-                            toolCallName=state["messages"][-1]
+                            tool_call_id=state.messages[-1].tool_calls[0].id,
+                            toolCallName=state.messages[-1]
                             .tool_calls[0]
                             .function.name,
                         )
@@ -125,8 +111,8 @@ async def langgraph_agent(input_data: RunAgentInput):
                     yield encoder.encode(
                         ToolCallArgsEvent(
                             type=EventType.TOOL_CALL_ARGS,
-                            tool_call_id=state["messages"][-1].tool_calls[0].id,
-                            delta=state["messages"][-1]
+                            tool_call_id=state.messages[-1].tool_calls[0].id,
+                            delta=state.messages[-1]
                             .tool_calls[0]
                             .function.arguments,
                         )
@@ -135,7 +121,7 @@ async def langgraph_agent(input_data: RunAgentInput):
                     yield encoder.encode(
                         ToolCallEndEvent(
                             type=EventType.TOOL_CALL_END,
-                            tool_call_id=state["messages"][-1].tool_calls[0].id,
+                            tool_call_id=state.messages[-1].tool_calls[0].id,
                         )
                     )
                 else:
@@ -148,8 +134,8 @@ async def langgraph_agent(input_data: RunAgentInput):
                     )
 
                     # Only send content event if content is not empty
-                    if state["messages"][-1].content:
-                        content = state["messages"][-1].content
+                    if state.messages[-1].content:
+                        content = state.messages[-1].content
                         # Split content into 100 parts
                         n_parts = 100
                         part_length = max(1, len(content) // n_parts)

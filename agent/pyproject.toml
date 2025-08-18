@@ -17,6 +17,7 @@ dependencies = [
     "dotenv (>=0.9.9,<0.10.0)",
     "pandas (>=2.3.0,<3.0.0)",
     "lxml (>=6.0.0,<7.0.0)",
+    "pydantic-graph (>=0.7.2,<0.8.0)",
 ]
 
 [tool.poetry]
