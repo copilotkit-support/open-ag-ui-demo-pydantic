@@ -82,13 +82,25 @@ export default function OpenStocksCanvas() {
     initialState: {
       available_cash: totalCash,
       investment_summary: {} as any,
-      investment_portfolio: [] as InvestmentPortfolio[]
+      investment_portfolio: [] as InvestmentPortfolio[],
+      tool_logs: [],
+      messages: [],
+      tools: [],
+      be_stock_data: null,
+      be_arguments: {}
     }
   })
 
   useCoAgentStateRender({
     name: "pydanticAgent",
-    render: ({state}) => <ToolLogs logs={state.tool_logs} />
+    render: ({state}) => {
+      console.log(state, "state")
+      return (
+        <>
+          <ToolLogs logs={state.tool_logs} />
+        </>
+      )
+    }
   })
 
   useCopilotAction({
