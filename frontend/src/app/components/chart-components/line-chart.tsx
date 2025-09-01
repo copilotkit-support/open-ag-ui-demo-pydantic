@@ -53,8 +53,8 @@ export function LineChartComponent({ data, size = "normal" }: LineChartComponent
                 fontWeight: 500,
               }}
             />
-            <Line type="monotone" dataKey="portfolio" stroke="#e92063" strokeWidth={2} name="Portfolio" dot={false} />
-            <Line type="monotone" dataKey="spy" stroke="#16df9c" strokeWidth={2} name="SPY" dot={false} />
+            <Line isAnimationActive={false} type="monotone" dataKey="portfolio" stroke="#e92063" strokeWidth={2} name="Portfolio" dot={false} />
+            <Line isAnimationActive={false} type="monotone" dataKey="spy" stroke="#16df9c" strokeWidth={2} name="SPY" dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

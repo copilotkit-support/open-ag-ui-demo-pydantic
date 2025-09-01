@@ -19,7 +19,7 @@ import uuid
 import json
 import asyncio
 from datetime import datetime
-
+from textwrap import dedent
 # import datetime
 import yfinance as yf
 import numpy as np
@@ -36,7 +36,7 @@ class AgentState(BaseModel):
     investment_summary: dict = {}
     investment_portfolio: list = []
     tool_logs: list = []
-    # render_standard_charts_and_table_args: dict = {}
+    render_standard_charts_and_table_args: dict = {}
 
 
 class JSONPatchOp(BaseModel):
@@ -81,9 +81,18 @@ class insights(BaseModel):
 agent = Agent(
     "openai:gpt-4o-mini",
     # instructions='You are a stock portfolio analysis agent. For every single task, you should use tools to gather information from the internet. You have four tools at your disposal: extract_relevant_data_from_user_prompt, generate_insights, generate_stock_report, analyze_stock_performance. For every question, you need to break it down into smaller steps, and use the tools to gather the information. For 1st step, you need to call extract_relevant_data_from_user_prompt tool and the output will be added to portfolio data context. Then you call generate_insights tool and the output will be added to insights context. Then you call generate_stock_report tool and the output will be added to stock report context. Then you call analyze_stock_performance tool and the output will be added to stock performance context. After that you can call the chat tool with the portfolio data, insights, stock report and stock performance to answer the question.',
-    instructions="You are a stock portfolio analysis agent. Use the tools provided effectively to answer the user query. When user asks for something related to investments in stock portfolio, you should always call the render_standard_charts_and_table tool with render_standard_charts_and_table_args as the tool argument to the frontend after running the generate_insights tool",
+    # instructions="You are a stock portfolio analysis agent. Use the tools provided effectively to answer the user query.",
     deps_type=StateDeps[AgentState],
 )
+
+
+@agent.instructions
+async def instructions(ctx: RunContext[StateDeps[AgentState]]) -> str:
+    return dedent(f"""You are a stock portfolio analysis agent. 
+                  Use the tools provided effectively to answer the user query.
+                  When user asks something related to the stock investment, make sure to call the frontend tool render_standard_charts_and_table with the tool argument render_standard_charts_and_table_args as the tool argument to the frontend after running the generate_insights tool""")
+
+
 
 # @agent.tool
 # async def update_state(ctx: RunContext[StateDeps[AgentState]]) -> StateSnapshotEvent:
@@ -93,9 +102,9 @@ agent = Agent(
 #     )
 
 
-@agent.tool
+@agent.tool_plain
 async def chat_tool(
-    ctx: RunContext[StateDeps[AgentState]], message: str
+    message: str
 ) -> list[TextMessageStartEvent, TextMessageContentEvent, TextMessageEndEvent]:
     """
         When user asks for something unrelated to the stock portfolio, you should use this tool to answer the question. The answers should be generic and should be relevant to the user query. Also when the message role is a tool, you should trigger this tool to provide a summary of the tool call provided. 
@@ -133,7 +142,8 @@ async def gather_stock_data(
     investment_date: str,
     interval_of_investment: str,
     amount_of_dollars_to_be_invested: list[float],
-    operation: Literal["add", "update", "delete", "replace"],
+    operation: Literal["add", "replace", "delete"],
+    to_be_replaced : list[str]
 ) -> list[StateSnapshotEvent, StateDeltaEvent]:
     """
     This tool is used for the chat purposes. If the user query is not related to the stock portfolio, you should use this tool to answer the question. The answers should be generic and should be relevant to the user query.
@@ -153,6 +163,38 @@ async def gather_stock_data(
     )
     changes = []
 
+    if len(ctx.deps.state.investment_portfolio) > 0:
+        if(operation == "add"):
+            for i in ctx.deps.state.investment_portfolio:
+                stock_tickers_list.append(i["ticker"])
+                amount_of_dollars_to_be_invested.append(i["amount"])
+        if(operation == "delete"):
+            for i in ctx.deps.state.investment_portfolio:
+                if i["ticker"] in stock_tickers_list:
+                    stock_tickers_list.remove(i["ticker"])
+                    # amount_of_dollars_to_be_invested.remove(i["amount"])
+                else:
+                    stock_tickers_list.append(i["ticker"])
+                    amount_of_dollars_to_be_invested.append(i["amount"])
+        if(operation == "replace"):
+            items = []
+            amounts = []
+            for i in ctx.deps.state.investment_portfolio:
+                # if i["ticker"] in to_be_replaced:
+                #     i['ticker'] = to_be_replaced[to_be_replaced.index(i["ticker"])]
+                items.append(i["ticker"])
+                amounts.append(i["amount"])
+            for i in to_be_replaced:
+                if i not in items:
+                    items.append(i)
+                    amounts.append(0)
+            # for i in range(len(items)):
+            #     stock_tickers_list.append(items[i])
+            #     amount_of_dollars_to_be_invested.append(amounts[i])
+            stock_tickers_list = items
+            amount_of_dollars_to_be_invested = amounts
+
+    print(stock_tickers_list, amount_of_dollars_to_be_invested,"stock_tickers_list, amount_of_dollars_to_be_invested")
     changes.append(
         JSONPatchOp(
             op="replace",
@@ -230,11 +272,11 @@ async def gather_stock_data(
         "interval_of_investment": interval_of_investment,
     }
     # message_id = str(uuid.uuid4())
-
+    print((ctx.deps.state).model_dump(),"ctx.deps.statectx.deps.state")
     return [
         StateSnapshotEvent(
             type=EventType.STATE_SNAPSHOT,
-            snapshot=ctx.deps.state,
+            snapshot=(ctx.deps.state).model_dump(),
         ),
         StateDeltaEvent(type=EventType.STATE_DELTA, delta=changes),
     ]
@@ -532,28 +574,28 @@ async def generate_insights(
     """
     print(bullInsights, bearInsights, tickers)
     tool_call_id = str(uuid.uuid4())
-    # ctx.deps.state.render_standard_charts_and_table_args = (
-    #     {
-    #         "investment_summary": ctx.deps.state.investment_summary,
-    #         "insights": {
-    #             "bullInsights": [insight.model_dump() for insight in bullInsights],
-    #             "bearInsights": [insight.model_dump() for insight in bearInsights],
-    #         },
-    #     }
-    #     # default=str,  # Convert non-serializable objects to strings
-    # )
+    ctx.deps.state.render_standard_charts_and_table_args = (
+        {
+            "investment_summary": ctx.deps.state.investment_summary,
+            "insights": {
+                "bullInsights": [insight.model_dump() for insight in bullInsights],
+                "bearInsights": [insight.model_dump() for insight in bearInsights],
+            },
+        }
+        # default=str,  # Convert non-serializable objects to strings
+    )
     return [
-        # StateDeltaEvent(
-        #     type=EventType.STATE_DELTA,
-        #     delta=[
-        #         {"op": "replace", "path": "/tool_logs", "value": []},
-        #         {
-        #             "op": "replace",
-        #             "path": "/render_standard_charts_and_table_args",
-        #             "value": ctx.deps.state.render_standard_charts_and_table_args,
-        #         },
-        #     ],
-        # ),
+        StateDeltaEvent(
+            type=EventType.STATE_DELTA,
+            delta=[
+                {"op": "replace", "path": "/tool_logs", "value": []},
+                {
+                    "op": "replace",
+                    "path": "/render_standard_charts_and_table_args",
+                    "value": ctx.deps.state.render_standard_charts_and_table_args,
+                },
+            ],
+        ),
         # CustomEvent(
         #     type=EventType.CUSTOM,
         #     name='render_standard_charts_and_table',
@@ -573,34 +615,36 @@ async def generate_insights(
         #         },
         #     ],
         # )
-        ToolCallStartEvent(
-            type=EventType.TOOL_CALL_START,
-            tool_call_id=tool_call_id,
-            tool_call_name="render_standard_charts_and_table",
-        ),
-        ToolCallArgsEvent(
-            type=EventType.TOOL_CALL_ARGS,
-            tool_call_id=tool_call_id,
-            delta=json.dumps(
-                {
-                    "investment_summary": ctx.deps.state.investment_summary,
-                    "insights": {
-                        "bullInsights": [
-                            insight.model_dump() for insight in bullInsights
-                        ],
-                        "bearInsights": [
-                            insight.model_dump() for insight in bearInsights
-                        ],
-                    },
-                },
-                default=str,  # Convert non-serializable objects to strings
-            ),
-        ),
+        # ToolCallStartEvent(
+        #     type=EventType.TOOL_CALL_START,
+        #     tool_call_id=tool_call_id,
+        #     tool_call_name="render_standard_charts_and_table",
+        # ),
+        # ToolCallArgsEvent(
+        #     type=EventType.TOOL_CALL_ARGS,
+        #     tool_call_id=tool_call_id,
+        #     delta=json.dumps(
+        #         {
+        #             "investment_summary": ctx.deps.state.investment_summary,
+        #             "insights": {
+        #                 "bullInsights": [
+        #                     insight.model_dump() for insight in bullInsights
+        #                 ],
+        #                 "bearInsights": [
+        #                     insight.model_dump() for insight in bearInsights
+        #                 ],
+        #             },
+        #         },
+        #         default=str,  # Convert non-serializable objects to strings
+        #     ),
+        # ),
         # ToolCallEndEvent(
         #     type=EventType.TOOL_CALL_END,
         #     tool_call_id=tool_call_id,
         # )
     ]
+
+
 
 
 pydantic_agent = agent.to_ag_ui(deps=StateDeps(AgentState()))

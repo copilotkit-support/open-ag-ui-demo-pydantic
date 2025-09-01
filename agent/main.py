@@ -28,31 +28,30 @@ from http import HTTPStatus
 from fastapi.responses import Response, StreamingResponse
 from stock import AgentState, agent, pydantic_agent
 from dotenv import load_dotenv
-from starlette.types import Scope, Receive, Send
 
 load_dotenv()
 app = FastAPI()
 
-# app.mount(
-#     "/pydantic-agent",
-#     pydantic_agent,
-#     "pydantic-agent",
-# )
+app.mount(
+    "/pydantic-agent",
+    pydantic_agent,
+    "pydantic agent",
+)
 
-@app.post('/pydantic-agent')
-async def run_agent(request: Request) -> Response:
-    res = await request.json()
-    print("Running agent")
-    return await handle_ag_ui_request(agent, request, deps=StateDeps(AgentState(
-        available_cash=float(res['state']['available_cash']),
-        investment_summary=res['state']['investment_summary'],
-        investment_portfolio=res['state']['investment_portfolio'],
-        tool_logs=res['state']['tool_logs'],
-        tools=res['state']['tools'],
-        be_stock_data=res['state']['be_stock_data'],
-        be_arguments=res['state']['be_arguments'],
-        # render_standard_charts_and_table_args=res['state']['render_standard_charts_and_table_args'],
-    )))
+# @app.post('/pydantic-agent')
+# async def run_agent(request: Request) -> Response:
+#     res = await request.json()
+#     print("Running agent")
+#     return await handle_ag_ui_request(agent, request, deps=StateDeps(AgentState(
+#         available_cash=float(res['state']['available_cash']),
+#         investment_summary=res['state']['investment_summary'],
+#         investment_portfolio=res['state']['investment_portfolio'],
+#         tool_logs=res['state']['tool_logs'],
+#         tools=res['state']['tools'],
+#         be_stock_data=res['state']['be_stock_data'],
+#         be_arguments=res['state']['be_arguments'],
+#         # render_standard_charts_and_table_args=res['state']['render_standard_charts_and_table_args'],
+#     )))
 
 
 # @app.post("/pydantic-agent")
