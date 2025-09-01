@@ -30,14 +30,13 @@ load_dotenv()
 
 class AgentState(BaseModel):
     tools: list = []
-    messages: list = []
     be_stock_data: Any = None
     be_arguments: dict = {}
-    available_cash: int = 0
+    available_cash: float = 0.0
     investment_summary: dict = {}
     investment_portfolio: list = []
     tool_logs: list = []
-    render_standard_charts_and_table_args: dict = {}
+    # render_standard_charts_and_table_args: dict = {}
 
 
 class JSONPatchOp(BaseModel):
@@ -213,17 +212,17 @@ async def gather_stock_data(
         )
     )
     tool_log_id = str(uuid.uuid4())
-    changes.append(
-        JSONPatchOp(
-            op="add",
-            path="/tool_logs/-",
-            value={
-                "message": "Gathering stock data",
-                "status": "completed",
-                "id": tool_log_id,
-            },
-        )
-    )
+    # changes.append(
+    #     JSONPatchOp(
+    #         op="add",
+    #         path="/tool_logs/-",
+    #         value={
+    #             "message": "Gathering stock data",
+    #             "status": "completed",
+    #             "id": tool_log_id,
+    #         },
+    #     )
+    # )
     ctx.deps.state.be_arguments = {
         "ticker_symbols": stock_tickers_list,
         "investment_date": investment_date,
@@ -397,7 +396,7 @@ async def allocate_cash(
         "percent_allocation_per_stock": percent_allocation_per_stock,
         "percent_return_per_stock": percent_return_per_stock,
     }
-    ctx.deps.state.available_cash = total_cash  # Update available cash in state
+    ctx.deps.state.available_cash = float(total_cash)  # Update available cash in state
 
     # --- Portfolio vs SPY performanceData logic ---
     # Get SPY prices for the same dates
@@ -507,17 +506,17 @@ async def allocate_cash(
     # )
     tool_log_id = str(uuid.uuid4())
     changes = []
-    changes.append(
-        JSONPatchOp(
-            op="add",
-            path="/tool_logs/-",
-            value={
-                "message": "Allocating cash",
-                "status": "completed",
-                "id": tool_log_id,
-            },
-        )
-    )
+    # changes.append(
+    #     JSONPatchOp(
+    #         op="add",
+    #         path="/tool_logs/-",
+    #         value={
+    #             "message": "Allocating cash",
+    #             "status": "completed",
+    #             "id": tool_log_id,
+    #         },
+    #     )
+    # )
     return [StateDeltaEvent(type=EventType.STATE_DELTA, delta=changes)]
 
 
@@ -529,32 +528,32 @@ async def generate_insights(
     tickers: list[str],
 ) -> list[StateDeltaEvent]:
     """
-    This tool should be called after allocate_cash so as to generate insights based on the stock tickers present in ctx.deps.state.investment_summary. Make sure that each insight is unique and not repeated. For each company stocks in the list provided, you should generate 2 positive insights and 2 negative insights. After executing this tool, the render_standard_charts_and_table tool should be called with render_standard_charts_and_table_args as the tool argument.
+    This tool should be called after allocate_cash so as to generate insights based on the stock tickers present in ctx.deps.state.investment_summary. Make sure that each insight is unique and not repeated. For each company stocks in the list provided, you should generate 2 positive insights and 2 negative insights. This tool should be called only once after allocating cash. At that time itself insights for all stocks tickers need to be generated.
     """
     print(bullInsights, bearInsights, tickers)
     tool_call_id = str(uuid.uuid4())
-    ctx.deps.state.render_standard_charts_and_table_args = (
-        {
-            "investment_summary": ctx.deps.state.investment_summary,
-            "insights": {
-                "bullInsights": [insight.model_dump() for insight in bullInsights],
-                "bearInsights": [insight.model_dump() for insight in bearInsights],
-            },
-        }
-        # default=str,  # Convert non-serializable objects to strings
-    )
+    # ctx.deps.state.render_standard_charts_and_table_args = (
+    #     {
+    #         "investment_summary": ctx.deps.state.investment_summary,
+    #         "insights": {
+    #             "bullInsights": [insight.model_dump() for insight in bullInsights],
+    #             "bearInsights": [insight.model_dump() for insight in bearInsights],
+    #         },
+    #     }
+    #     # default=str,  # Convert non-serializable objects to strings
+    # )
     return [
-        StateDeltaEvent(
-            type=EventType.STATE_DELTA,
-            delta=[
-                {"op": "replace", "path": "/tool_logs", "value": []},
-                {
-                    "op": "replace",
-                    "path": "/render_standard_charts_and_table_args",
-                    "value": ctx.deps.state.render_standard_charts_and_table_args,
-                },
-            ],
-        ),
+        # StateDeltaEvent(
+        #     type=EventType.STATE_DELTA,
+        #     delta=[
+        #         {"op": "replace", "path": "/tool_logs", "value": []},
+        #         {
+        #             "op": "replace",
+        #             "path": "/render_standard_charts_and_table_args",
+        #             "value": ctx.deps.state.render_standard_charts_and_table_args,
+        #         },
+        #     ],
+        # ),
         # CustomEvent(
         #     type=EventType.CUSTOM,
         #     name='render_standard_charts_and_table',
@@ -574,33 +573,33 @@ async def generate_insights(
         #         },
         #     ],
         # )
-        # ToolCallStartEvent(
-        #     type=EventType.TOOL_CALL_START,
-        #     tool_call_id=tool_call_id,
-        #     tool_call_name="render_standard_charts_and_table",
-        # ),
-        # ToolCallArgsEvent(
-        #     type=EventType.TOOL_CALL_ARGS,
-        #     tool_call_id=tool_call_id,
-        #     delta=json.dumps(
-        #         {
-        #             "investment_summary": ctx.deps.state.investment_summary,
-        #             "insights": {
-        #                 "bullInsights": [
-        #                     insight.model_dump() for insight in bullInsights
-        #                 ],
-        #                 "bearInsights": [
-        #                     insight.model_dump() for insight in bearInsights
-        #                 ],
-        #             },
-        #         },
-        #         default=str,  # Convert non-serializable objects to strings
-        #     ),
-        # ),
+        ToolCallStartEvent(
+            type=EventType.TOOL_CALL_START,
+            tool_call_id=tool_call_id,
+            tool_call_name="render_standard_charts_and_table",
+        ),
+        ToolCallArgsEvent(
+            type=EventType.TOOL_CALL_ARGS,
+            tool_call_id=tool_call_id,
+            delta=json.dumps(
+                {
+                    "investment_summary": ctx.deps.state.investment_summary,
+                    "insights": {
+                        "bullInsights": [
+                            insight.model_dump() for insight in bullInsights
+                        ],
+                        "bearInsights": [
+                            insight.model_dump() for insight in bearInsights
+                        ],
+                    },
+                },
+                default=str,  # Convert non-serializable objects to strings
+            ),
+        ),
         # ToolCallEndEvent(
         #     type=EventType.TOOL_CALL_END,
         #     tool_call_id=tool_call_id,
-        # ),
+        # )
     ]
 
 

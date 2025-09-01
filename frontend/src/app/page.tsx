@@ -84,41 +84,91 @@ export default function OpenStocksCanvas() {
       investment_summary: {} as any,
       investment_portfolio: [] as InvestmentPortfolio[],
       tool_logs: [],
-      messages: [],
       tools: [],
       be_stock_data: null,
       be_arguments: {},
-      render_standard_charts_and_table_args: {} as any
+      // render_standard_charts_and_table_args: {} as any
     }
   })
 
-  useCoAgentStateRender({
-    name: "pydanticAgent",
-    render: ({ state }) =>  ( state?.tool_logs?.length > 0 ? <ToolLogs logs={state?.tool_logs} /> : <></>)
-  })
+  // useCoAgentStateRender({
+  //   name: "pydanticAgent",
+  //   render: ({ state }) =>  ( state?.tool_logs?.length > 0 ? <ToolLogs logs={state?.tool_logs} /> : <></>)
+  // })
+
+  useEffect(() => {
+    console.log(state, "state")
+  }, [state])
 
   useCopilotAction({
     name: "render_standard_charts_and_table",
     description: "This is an action to render a standard chart and table. The chart can be a bar chart or a line chart. The table can be a table of data.",
+    // parameters: [
+    //   {
+    //     name : "investment_summary",
+    //     type: "object",
+    //     attributes: [
+    //       {
+    //         name: "percent_allocation_per_stock",
+    //         type: "object",
+    //         attributes: [
+    //           {
+    //             name: "ticker",
+    //             type: "string",
+    //           }
+    //         ]
+    //       },
+    //       {
+    //         name: "percent_return_per_stock",
+    //         type: "object",
+    //         attributes: [
+    //           {
+    //             name: "ticker",
+    //             type: "string",
+    //           }
+    //         ]
+    //       },
+    //       {
+    //         name: "performanceData",
+    //         type: "object[]",
+    //         attributes: [
+    //           {
+    //             name: "date",
+    //             type: "string",
+    //           },
+    //           {
+    //             name: "portfolio",
+    //             type: "number",
+    //           },
+    //           {
+    //             name: "spy",
+    //             type: "number",
+    //           }
+    //         ]
+    //       }
+    //     ]
+        
+    //   }
+    // ],
     renderAndWaitForResponse: ({ args, respond, status }) => {
       useEffect(() => {
-        console.log(args, "argsargsargsargsargsaaa")
+        console.log(args,"argsargsargsargsargsaaa")
       }, [args])
       return (
         <>
-          {(state?.render_standard_charts_and_table_args?.investment_summary?.percent_allocation_per_stock && state?.render_standard_charts_and_table_args?.investment_summary?.percent_return_per_stock && state?.render_standard_charts_and_table_args?.investment_summary?.performanceData) &&
+          {(args?.investment_summary?.percent_allocation_per_stock && args?.investment_summary?.percent_return_per_stock && args?.investment_summary?.performanceData) &&
             <>
               <div className="flex flex-col gap-4">
-                <LineChartComponent data={state?.render_standard_charts_and_table_args?.investment_summary?.performanceData} size="small" />
-                <BarChartComponent data={Object.entries(state?.render_standard_charts_and_table_args?.investment_summary?.percent_return_per_stock).map(([ticker, return1]) => ({
+                <LineChartComponent data={args?.investment_summary?.performanceData} size="small" />
+                <BarChartComponent data={Object.entries(args?.investment_summary?.percent_return_per_stock).map(([ticker, return1]) => ({
                   ticker,
                   return: return1 as number
                 }))} size="small" />
-                <AllocationTableComponent allocations={Object.entries(state?.render_standard_charts_and_table_args?.investment_summary?.percent_allocation_per_stock).map(([ticker, allocation]) => ({
+                <AllocationTableComponent allocations={Object.entries(args?.investment_summary?.percent_allocation_per_stock).map(([ticker, allocation]) => ({
                   ticker,
                   allocation: allocation as number,
-                  currentValue: state?.render_standard_charts_and_table_args?.investment_summary.final_prices[ticker] * state?.render_standard_charts_and_table_args?.investment_summary?.holdings[ticker],
-                  totalReturn: state?.render_standard_charts_and_table_args?.investment_summary.percent_return_per_stock[ticker]
+                  currentValue: args?.investment_summary.final_prices[ticker] * args?.investment_summary?.holdings[ticker],
+                  totalReturn: args?.investment_summary.percent_return_per_stock[ticker]
                 }))} size="small" />
 
               </div>
@@ -128,34 +178,34 @@ export default function OpenStocksCanvas() {
                 onClick={() => {
                   debugger
                   if (respond) {
-                    setTotalCash(state?.render_standard_charts_and_table_args?.investment_summary?.cash)
+                    setTotalCash(args?.investment_summary?.cash)
                     setCurrentState({
                       ...currentState,
-                      returnsData: Object.entries(state?.render_standard_charts_and_table_args?.investment_summary?.percent_return_per_stock).map(([ticker, return1]) => ({
+                      returnsData: Object.entries(args?.investment_summary?.percent_return_per_stock).map(([ticker, return1]) => ({
                         ticker,
                         return: return1 as number
                       })),
-                      allocations: Object.entries(state?.render_standard_charts_and_table_args?.investment_summary?.percent_allocation_per_stock).map(([ticker, allocation]) => ({
+                      allocations: Object.entries(args?.investment_summary?.percent_allocation_per_stock).map(([ticker, allocation]) => ({
                         ticker,
                         allocation: allocation as number,
-                        currentValue: state?.render_standard_charts_and_table_args?.investment_summary?.final_prices[ticker] * state?.render_standard_charts_and_table_args?.investment_summary?.holdings[ticker],
-                        totalReturn: state?.render_standard_charts_and_table_args?.investment_summary?.percent_return_per_stock[ticker]
+                        currentValue: args?.investment_summary?.final_prices[ticker] * args?.investment_summary?.holdings[ticker],
+                        totalReturn: args?.investment_summary?.percent_return_per_stock[ticker]
                       })),
-                      performanceData: state?.render_standard_charts_and_table_args?.investment_summary?.performanceData,
-                      bullInsights: state?.render_standard_charts_and_table_args?.insights?.bullInsights || [],
-                      bearInsights: state?.render_standard_charts_and_table_args?.insights?.bearInsights || [],
-                      currentPortfolioValue: state?.render_standard_charts_and_table_args?.investment_summary?.total_value,
-                      totalReturns: (Object.values(state?.render_standard_charts_and_table_args?.investment_summary?.returns) as number[])
+                      performanceData: args?.investment_summary?.performanceData,
+                      bullInsights: args?.insights?.bullInsights || [],
+                      bearInsights: args?.insights?.bearInsights || [],
+                      currentPortfolioValue: args?.investment_summary?.total_value,
+                      totalReturns: (Object.values(args?.investment_summary?.returns) as number[])
                         .reduce((acc, val) => acc + val, 0)
                     })
                     setInvestedAmount(
-                      (Object.values(state?.render_standard_charts_and_table_args?.investment_summary?.total_invested_per_stock) as number[])
+                      (Object.values(args?.investment_summary?.total_invested_per_stock) as number[])
                         .reduce((acc, val) => acc + val, 0)
                     )
-                    setState({
-                      ...state,
-                      available_cash: totalCash,
-                    })
+                    // setState({
+                    //   ...state,
+                    //   available_cash: args?.investment_summary?.cash,
+                    // })
                     respond("Data rendered successfully. Provide summary of the investments by not making any tool calls")
                   }
                 }}
@@ -187,14 +237,14 @@ export default function OpenStocksCanvas() {
     renderAndWaitForResponse: ({ args, respond, status }) => {
       return (
         <>
-          <LineChartComponent data={state?.render_standard_charts_and_table_args?.investment_summary?.performanceData} size="small" />
+          <LineChartComponent data={args?.investment_summary?.performanceData} size="small" />
           <button hidden={status == "complete"}
             className="mt-4 rounded-full px-6 py-2 bg-green-50 text-green-700 border border-green-200 shadow-sm hover:bg-green-100 transition-colors font-semibold text-sm"
             onClick={() => {
               debugger
               if (respond) {
                 setSandBoxPortfolio([...sandBoxPortfolio, {
-                  performanceData: state?.render_standard_charts_and_table_args?.investment_summary?.performanceData.map((item: any) => ({
+                  performanceData: args?.investment_summary?.performanceData.map((item: any) => ({
                     date: item.date,
                     portfolio: item.portfolio,
                     spy: 0
