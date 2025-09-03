@@ -596,52 +596,7 @@ async def generate_insights(
                 },
             ],
         ),
-        # CustomEvent(
-        #     type=EventType.CUSTOM,
-        #     name='render_standard_charts_and_table',
-        #     value=[
-        #         {
-        #             'tool': 'render_standard_charts_and_table',
-        #             'tool_argument': json.dumps(
-        #                 {
-        #                     "investment_summary": ctx.deps.state.investment_summary,
-        #                     "insights": {
-        #                         "bullInsights": [insight.model_dump() for insight in bullInsights],
-        #                         "bearInsights": [insight.model_dump() for insight in bearInsights],
-        #                     },
-        #                 },
-        #                 default=str,  # Convert non-serializable objects to strings
-        #             ),
-        #         },
-        #     ],
-        # )
-        # ToolCallStartEvent(
-        #     type=EventType.TOOL_CALL_START,
-        #     tool_call_id=tool_call_id,
-        #     tool_call_name="render_standard_charts_and_table",
-        # ),
-        # ToolCallArgsEvent(
-        #     type=EventType.TOOL_CALL_ARGS,
-        #     tool_call_id=tool_call_id,
-        #     delta=json.dumps(
-        #         {
-        #             "investment_summary": ctx.deps.state.investment_summary,
-        #             "insights": {
-        #                 "bullInsights": [
-        #                     insight.model_dump() for insight in bullInsights
-        #                 ],
-        #                 "bearInsights": [
-        #                     insight.model_dump() for insight in bearInsights
-        #                 ],
-        #             },
-        #         },
-        #         default=str,  # Convert non-serializable objects to strings
-        #     ),
-        # ),
-        # ToolCallEndEvent(
-        #     type=EventType.TOOL_CALL_END,
-        #     tool_call_id=tool_call_id,
-        # )
+        
     ]
 
 
