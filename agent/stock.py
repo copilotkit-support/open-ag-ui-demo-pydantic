@@ -19,13 +19,33 @@ load_dotenv()
 class AgentState(BaseModel):
     tools: list = []
     be_stock_data: Any = None
-    be_arguments: dict = {}
+    be_arguments: Any = None
     available_cash: float = 0.0
-    investment_summary: dict = {}
+    investment_summary: Any = None
     investment_portfolio: list = []
     tool_logs: list = []
     render_standard_charts_and_table_args: dict = {}
 
+
+class BackendArguments(BaseModel):
+    ticker_symbols: list[str]
+    investment_date: str
+    amount_of_dollars_to_be_invested: list[float]
+    interval_of_investment: str
+
+class InvestmentSummary(BaseModel):
+    holdings: dict
+    final_prices: dict
+    cash: float
+    returns: dict
+    total_value: float
+    investment_log: list
+    add_funds_needed: bool
+    add_funds_dates: list
+    total_invested_per_stock: dict
+    percent_allocation_per_stock: dict
+    percent_return_per_stock: dict
+    performanceData: list
 
 class JSONPatchOp(BaseModel):
     """A class representing a JSON Patch operation (RFC 6902)."""
@@ -184,12 +204,12 @@ async def gather_stock_data(
             },
         )
     )
-    ctx.deps.state.be_arguments = {
-        "ticker_symbols": stock_tickers_list,
-        "investment_date": investment_date,
-        "amount_of_dollars_to_be_invested": amount_of_dollars_to_be_invested,
-        "interval_of_investment": interval_of_investment,
-    }
+    ctx.deps.state.be_arguments = BackendArguments(
+        ticker_symbols=stock_tickers_list,
+        investment_date=investment_date,
+        amount_of_dollars_to_be_invested=amount_of_dollars_to_be_invested,
+        interval_of_investment=interval_of_investment,
+    )
     return StateSnapshotEvent(
         type=EventType.STATE_SNAPSHOT,
         snapshot=ctx.deps.state.model_dump(),
@@ -204,13 +224,11 @@ async def allocate_cash(
     This tool should be called after gather_stock_data so as to allocate cash to repective stocks extracted from previous stock
     """
 
-    stock_data_dict = (
-        ctx.deps.state.be_stock_data
-    )  
+    stock_data_dict = ctx.deps.state.be_stock_data
     stock_data = pd.DataFrame(stock_data_dict)
     args = ctx.deps.state.be_arguments
-    tickers = args["ticker_symbols"]
-    amounts = args["amount_of_dollars_to_be_invested"]  # list, one per ticker
+    tickers = args.ticker_symbols
+    amounts = args.amount_of_dollars_to_be_invested  # list, one per ticker
     interval = "single_shot"
 
     if ctx.deps.state.available_cash is not None:
@@ -265,7 +283,7 @@ async def allocate_cash(
                 add_funds_dates.append(
                     (str(first_date.date()), ticker, price, total_cash)
                 )
-        
+
     else:
         # DCA or other interval logic (previous logic)
         for date, row in stock_data.iterrows():
@@ -273,7 +291,7 @@ async def allocate_cash(
                 price = row[ticker]
                 if np.isnan(price):
                     continue  # skip if price is NaN
-                
+
                 if total_cash >= price:
                     shares_to_buy = total_cash // price
                     if shares_to_buy > 0:
@@ -292,7 +310,6 @@ async def allocate_cash(
                         f"{date.date()}: Not enough cash to buy {ticker} at ${price:.2f}. Available: ${total_cash:.2f}. Please add more funds."
                     )
 
-    
     final_prices = stock_data.iloc[-1]
     total_value = 0.0
     returns = {}
@@ -336,19 +353,20 @@ async def allocate_cash(
     total_value += total_cash  # Add remaining cash to total value
 
     # Store results in state
-    ctx.deps.state.investment_summary = {
-        "holdings": holdings,
-        "final_prices": final_prices.to_dict(),
-        "cash": total_cash,
-        "returns": returns,
-        "total_value": total_value,
-        "investment_log": investment_log,
-        "add_funds_needed": add_funds_needed,
-        "add_funds_dates": add_funds_dates,
-        "total_invested_per_stock": total_invested_per_stock,
-        "percent_allocation_per_stock": percent_allocation_per_stock,
-        "percent_return_per_stock": percent_return_per_stock,
-    }
+    ctx.deps.state.investment_summary = InvestmentSummary(
+        holdings= holdings,
+        final_prices= final_prices.to_dict(),
+        cash= total_cash,
+        returns= returns,
+        total_value= total_value,
+        investment_log= investment_log,
+        add_funds_needed= add_funds_needed,
+        add_funds_dates= add_funds_dates,
+        total_invested_per_stock= total_invested_per_stock,
+        percent_allocation_per_stock= percent_allocation_per_stock,
+        percent_return_per_stock= percent_return_per_stock,
+        performanceData= [],
+    )
     ctx.deps.state.available_cash = float(total_cash)  # Update available cash in state
 
     # --- Portfolio vs SPY performanceData logic ---
@@ -425,7 +443,7 @@ async def allocate_cash(
             }
         )
 
-    ctx.deps.state.investment_summary["performanceData"] = performanceData
+    ctx.deps.state.investment_summary.performanceData = performanceData
     # --- End performanceData logic ---
 
     # Compose summary message
@@ -457,7 +475,7 @@ async def generate_insights(
     This tool should be called after allocate_cash so as to generate insights based on the stock tickers present in ctx.deps.state.investment_summary. Make sure that each insight is unique and not repeated. For each company stocks in the list provided, you should generate 2 positive insights and 2 negative insights. This tool should be called only once after allocating cash. At that time itself insights for all stocks tickers need to be generated.
     """
     ctx.deps.state.render_standard_charts_and_table_args = {
-        "investment_summary": ctx.deps.state.investment_summary,
+        "investment_summary": ctx.deps.state.investment_summary.model_dump(),
         "insights": {
             "bullInsights": [insight.model_dump() for insight in bullInsights],
             "bearInsights": [insight.model_dump() for insight in bearInsights],
