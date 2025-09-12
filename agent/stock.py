@@ -1,26 +1,14 @@
 from pydantic import BaseModel, Field
 from typing import Any, Callable, Literal
-from ag_ui.core import (
-    StateSnapshotEvent,
-    EventType,
-    StateDeltaEvent,
-    ToolCallStartEvent,
-    ToolCallEndEvent,
-    ToolCallArgsEvent,
-    TextMessageStartEvent,
-    TextMessageEndEvent,
-    TextMessageContentEvent,
-    CustomEvent,
-)
+from ag_ui.core import StateSnapshotEvent, EventType, StateDeltaEvent
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.ag_ui import StateDeps
 from dotenv import load_dotenv
 import uuid
 import json
-import asyncio
 from datetime import datetime
 from textwrap import dedent
-# import datetime
+
 import yfinance as yf
 import numpy as np
 import pandas as pd
@@ -57,7 +45,7 @@ class JSONPatchOp(BaseModel):
     )
 
 
-class bull_insights(BaseModel):
+class BullInsights(BaseModel):
     title: str = Field(description="Short title for the positive insight.")
     description: str = Field(
         description="Detailed description of the positive insight."
@@ -65,7 +53,7 @@ class bull_insights(BaseModel):
     emoji: str = Field(description="Emoji representing the positive insight.")
 
 
-class bear_insights(BaseModel):
+class BearInsights(BaseModel):
     title: str = Field(description="Short title for the negative insight.")
     description: str = Field(
         description="Detailed description of the negative insight."
@@ -73,66 +61,24 @@ class bear_insights(BaseModel):
     emoji: str = Field(description="Emoji representing the negative insight.")
 
 
-class insights(BaseModel):
-    bullInsights: list[bull_insights]
-    bearInsights: list[bear_insights]
+class Insights(BaseModel):
+    bullInsights: list[BullInsights]
+    bearInsights: list[BearInsights]
 
 
 agent = Agent(
-    "openai:gpt-4o-mini",
-    # instructions='You are a stock portfolio analysis agent. For every single task, you should use tools to gather information from the internet. You have four tools at your disposal: extract_relevant_data_from_user_prompt, generate_insights, generate_stock_report, analyze_stock_performance. For every question, you need to break it down into smaller steps, and use the tools to gather the information. For 1st step, you need to call extract_relevant_data_from_user_prompt tool and the output will be added to portfolio data context. Then you call generate_insights tool and the output will be added to insights context. Then you call generate_stock_report tool and the output will be added to stock report context. Then you call analyze_stock_performance tool and the output will be added to stock performance context. After that you can call the chat tool with the portfolio data, insights, stock report and stock performance to answer the question.',
-    # instructions="You are a stock portfolio analysis agent. Use the tools provided effectively to answer the user query.",
+    "openai:gpt-5-mini",
     deps_type=StateDeps[AgentState],
 )
 
 
 @agent.instructions
 async def instructions(ctx: RunContext[StateDeps[AgentState]]) -> str:
-    return dedent(f"""You are a stock portfolio analysis agent. 
+    return dedent(
+        f"""You are a stock portfolio analysis agent. 
                   Use the tools provided effectively to answer the user query.
-                  When user asks something related to the stock investment, make sure to call the frontend tool render_standard_charts_and_table with the tool argument render_standard_charts_and_table_args as the tool argument to the frontend after running the generate_insights tool""")
-
-
-
-# @agent.tool
-# async def update_state(ctx: RunContext[StateDeps[AgentState]]) -> StateSnapshotEvent:
-#     return StateSnapshotEvent(
-#         type=EventType.STATE_SNAPSHOT,
-#         snapshot=ctx.deps.state,
-#     )
-
-
-@agent.tool_plain
-async def chat_tool(
-    message: str
-) -> list[TextMessageStartEvent, TextMessageContentEvent, TextMessageEndEvent]:
-    """
-        When user asks for something unrelated to the stock portfolio, you should use this tool to answer the question. The answers should be generic and should be relevant to the user query. Also when the message role is a tool, you should trigger this tool to provide a summary of the tool call provided. 
-
-    Args:
-        ctx (RunContext[StateDeps[AgentState]]): _description_
-        message (str): _description_
-
-    Returns:
-        list[TextMessageStartEvent, TextMessageContentEvent, TextMessageEndEvent]: _description_
-    """
-    message_id = str(uuid.uuid4())
-    return [
-        TextMessageStartEvent(
-            type=EventType.TEXT_MESSAGE_START,
-            message_id=message_id,
-            role="assistant",
-        ),
-        TextMessageContentEvent(
-            type=EventType.TEXT_MESSAGE_CONTENT,
-            message_id=message_id,
-            delta=message,
-        ),
-        TextMessageEndEvent(
-            type=EventType.TEXT_MESSAGE_END,
-            message_id=str(uuid.uuid4()),
-        ),
-    ]
+                  When user asks something related to the stock investment, make sure to call the frontend tool render_standard_charts_and_table with the tool argument render_standard_charts_and_table_args as the tool argument to the frontend after running the generate_insights tool"""
+    )
 
 
 @agent.tool
@@ -143,8 +89,8 @@ async def gather_stock_data(
     interval_of_investment: str,
     amount_of_dollars_to_be_invested: list[float],
     operation: Literal["add", "replace", "delete"],
-    to_be_replaced : list[str]
-) -> list[StateSnapshotEvent, StateDeltaEvent]:
+    to_be_replaced: list[str],
+) -> StateSnapshotEvent:
     """
     This tool is used for the chat purposes. If the user query is not related to the stock portfolio, you should use this tool to answer the question. The answers should be generic and should be relevant to the user query.
 
@@ -154,47 +100,33 @@ async def gather_stock_data(
     Returns:
         StateSnapshotEvent: _description_
     """
-    print(
-        stock_tickers_list,
-        investment_date,
-        interval_of_investment,
-        amount_of_dollars_to_be_invested,
-        operation,
-    )
     changes = []
 
     if len(ctx.deps.state.investment_portfolio) > 0:
-        if(operation == "add"):
+        if operation == "add":
             for i in ctx.deps.state.investment_portfolio:
                 stock_tickers_list.append(i["ticker"])
                 amount_of_dollars_to_be_invested.append(i["amount"])
-        if(operation == "delete"):
+        if operation == "delete":
             for i in ctx.deps.state.investment_portfolio:
                 if i["ticker"] in stock_tickers_list:
                     stock_tickers_list.remove(i["ticker"])
-                    # amount_of_dollars_to_be_invested.remove(i["amount"])
                 else:
                     stock_tickers_list.append(i["ticker"])
                     amount_of_dollars_to_be_invested.append(i["amount"])
-        if(operation == "replace"):
+        if operation == "replace":
             items = []
             amounts = []
             for i in ctx.deps.state.investment_portfolio:
-                # if i["ticker"] in to_be_replaced:
-                #     i['ticker'] = to_be_replaced[to_be_replaced.index(i["ticker"])]
                 items.append(i["ticker"])
                 amounts.append(i["amount"])
             for i in to_be_replaced:
                 if i not in items:
                     items.append(i)
                     amounts.append(0)
-            # for i in range(len(items)):
-            #     stock_tickers_list.append(items[i])
-            #     amount_of_dollars_to_be_invested.append(amounts[i])
             stock_tickers_list = items
             amount_of_dollars_to_be_invested = amounts
 
-    print(stock_tickers_list, amount_of_dollars_to_be_invested,"stock_tickers_list, amount_of_dollars_to_be_invested")
     changes.append(
         JSONPatchOp(
             op="replace",
@@ -219,7 +151,6 @@ async def gather_stock_data(
     investment_date = investment_date
     current_year = datetime.now().year
     if current_year - int(investment_date[:4]) > 4:
-        print("investment date is more than 4 years ago")
         investment_date = f"{current_year - 4}-01-01"
     if current_year - int(investment_date[:4]) == 0:
         history_period = "1y"
@@ -253,51 +184,32 @@ async def gather_stock_data(
             },
         )
     )
-    tool_log_id = str(uuid.uuid4())
-    # changes.append(
-    #     JSONPatchOp(
-    #         op="add",
-    #         path="/tool_logs/-",
-    #         value={
-    #             "message": "Gathering stock data",
-    #             "status": "completed",
-    #             "id": tool_log_id,
-    #         },
-    #     )
-    # )
     ctx.deps.state.be_arguments = {
         "ticker_symbols": stock_tickers_list,
         "investment_date": investment_date,
         "amount_of_dollars_to_be_invested": amount_of_dollars_to_be_invested,
         "interval_of_investment": interval_of_investment,
     }
-    # message_id = str(uuid.uuid4())
-    print((ctx.deps.state).model_dump(),"ctx.deps.statectx.deps.state")
-    return [
-        StateSnapshotEvent(
-            type=EventType.STATE_SNAPSHOT,
-            snapshot=(ctx.deps.state).model_dump(),
-        ),
-        StateDeltaEvent(type=EventType.STATE_DELTA, delta=changes),
-    ]
+    return StateSnapshotEvent(
+        type=EventType.STATE_SNAPSHOT,
+        snapshot=ctx.deps.state.model_dump(),
+    )
 
 
 @agent.tool
 async def allocate_cash(
     ctx: RunContext[StateDeps[AgentState]],
-) -> list[StateDeltaEvent]:
+) -> str:
     """
     This tool should be called after gather_stock_data so as to allocate cash to repective stocks extracted from previous stock
     """
 
     stock_data_dict = (
         ctx.deps.state.be_stock_data
-    )  # Dictionary: {ticker: {date: price}}
-    # Convert back to DataFrame for processing
+    )  
     stock_data = pd.DataFrame(stock_data_dict)
     args = ctx.deps.state.be_arguments
     tickers = args["ticker_symbols"]
-    investment_date = args["investment_date"]
     amounts = args["amount_of_dollars_to_be_invested"]  # list, one per ticker
     interval = "single_shot"
 
@@ -314,7 +226,6 @@ async def allocate_cash(
     stock_data = stock_data.sort_index()
 
     if interval == "single_shot":
-        # Buy all shares at the first available date using allocated money for each ticker
         first_date = stock_data.index[0]
         row = stock_data.loc[first_date]
         for idx, ticker in enumerate(tickers):
@@ -354,7 +265,7 @@ async def allocate_cash(
                 add_funds_dates.append(
                     (str(first_date.date()), ticker, price, total_cash)
                 )
-        # No further purchases on subsequent dates
+        
     else:
         # DCA or other interval logic (previous logic)
         for date, row in stock_data.iterrows():
@@ -362,7 +273,7 @@ async def allocate_cash(
                 price = row[ticker]
                 if np.isnan(price):
                     continue  # skip if price is NaN
-                # Invest as much as possible for this ticker at this date
+                
                 if total_cash >= price:
                     shares_to_buy = total_cash // price
                     if shares_to_buy > 0:
@@ -381,7 +292,7 @@ async def allocate_cash(
                         f"{date.date()}: Not enough cash to buy {ticker} at ${price:.2f}. Available: ${total_cash:.2f}. Please add more funds."
                     )
 
-    # Calculate final value and new summary fields
+    
     final_prices = stock_data.iloc[-1]
     total_value = 0.0
     returns = {}
@@ -455,7 +366,6 @@ async def allocate_cash(
         # Align SPY prices to stock_data dates
         spy_prices = spy_prices.reindex(stock_data.index, method="ffill")
     except Exception as e:
-        print("Error fetching SPY data:", e)
         spy_prices = pd.Series([None] * len(stock_data), index=stock_data.index)
 
     # Simulate investing the same total_invested in SPY
@@ -498,15 +408,11 @@ async def allocate_cash(
     running_cash = total_cash
     for date in stock_data.index:
         # Portfolio value: sum of shares * price at this date + cash
-        port_value = (
-            sum(
-                running_holdings[t] * stock_data.loc[date][t]
-                for t in tickers
-                if not pd.isna(stock_data.loc[date][t])
-            )
-            # + running_cash
+        port_value = sum(
+            running_holdings[t] * stock_data.loc[date][t]
+            for t in tickers
+            if not pd.isna(stock_data.loc[date][t])
         )
-        # SPY value: shares * price + cash
         spy_price = spy_prices.loc[date]
         if isinstance(spy_price, pd.Series):
             spy_price = spy_price.iloc[0]
@@ -537,53 +443,26 @@ async def allocate_cash(
         percent = percent_return_per_stock[ticker]
         abs_return = returns[ticker]
         msg += f"{ticker}: {percent:.2f}% (${abs_return:.2f})\n"
-
-    # ctx.state.messages.append(
-    #     ToolMessage(
-    #         role="tool",
-    #         id=str(uuid.uuid4()),
-    #         content="The relevant details had been extracted",
-    #         tool_call_id=ctx.state.messages[-1].tool_calls[0].id,
-    #     )
-    # )
-    tool_log_id = str(uuid.uuid4())
-    changes = []
-    # changes.append(
-    #     JSONPatchOp(
-    #         op="add",
-    #         path="/tool_logs/-",
-    #         value={
-    #             "message": "Allocating cash",
-    #             "status": "completed",
-    #             "id": tool_log_id,
-    #         },
-    #     )
-    # )
-    return [StateDeltaEvent(type=EventType.STATE_DELTA, delta=changes)]
+    return "allocated cash successfully"
 
 
 @agent.tool
 async def generate_insights(
     ctx: RunContext[StateDeps[AgentState]],
-    bullInsights: list[bull_insights],
-    bearInsights: list[bear_insights],
+    bullInsights: list[BullInsights],
+    bearInsights: list[BearInsights],
     tickers: list[str],
 ) -> list[StateDeltaEvent]:
     """
     This tool should be called after allocate_cash so as to generate insights based on the stock tickers present in ctx.deps.state.investment_summary. Make sure that each insight is unique and not repeated. For each company stocks in the list provided, you should generate 2 positive insights and 2 negative insights. This tool should be called only once after allocating cash. At that time itself insights for all stocks tickers need to be generated.
     """
-    print(bullInsights, bearInsights, tickers)
-    tool_call_id = str(uuid.uuid4())
-    ctx.deps.state.render_standard_charts_and_table_args = (
-        {
-            "investment_summary": ctx.deps.state.investment_summary,
-            "insights": {
-                "bullInsights": [insight.model_dump() for insight in bullInsights],
-                "bearInsights": [insight.model_dump() for insight in bearInsights],
-            },
-        }
-        # default=str,  # Convert non-serializable objects to strings
-    )
+    ctx.deps.state.render_standard_charts_and_table_args = {
+        "investment_summary": ctx.deps.state.investment_summary,
+        "insights": {
+            "bullInsights": [insight.model_dump() for insight in bullInsights],
+            "bearInsights": [insight.model_dump() for insight in bearInsights],
+        },
+    }
     return [
         StateDeltaEvent(
             type=EventType.STATE_DELTA,
@@ -596,10 +475,7 @@ async def generate_insights(
                 },
             ],
         ),
-        
     ]
-
-
 
 
 pydantic_agent = agent.to_ag_ui(deps=StateDeps(AgentState()))

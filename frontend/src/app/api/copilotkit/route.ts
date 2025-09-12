@@ -1,7 +1,7 @@
 import {
   CopilotRuntime,
   copilotRuntimeNextJSAppRouterEndpoint,
-  OpenAIAdapter
+  OpenAIAdapter,
 } from '@copilotkit/runtime';
 import { NextRequest } from 'next/server';
 import { HttpAgent } from "@ag-ui/client";
