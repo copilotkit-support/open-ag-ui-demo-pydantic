@@ -18,10 +18,10 @@ load_dotenv()
 
 class AgentState(BaseModel):
     tools: list = []
-    be_stock_data: Any = None
-    be_arguments: Any = None
+    be_stock_data: Any = {}
+    be_arguments: Any = {}
     available_cash: float = 0.0
-    investment_summary: Any = None
+    investment_summary: Any = {}
     investment_portfolio: list = []
     tool_logs: list = []
     render_standard_charts_and_table_args: dict = {}
@@ -96,8 +96,9 @@ agent = Agent(
 async def instructions(ctx: RunContext[StateDeps[AgentState]]) -> str:
     return dedent(
         f"""You are a stock portfolio analysis agent. 
-                  Use the tools provided effectively to answer the user query.
-                  When user asks something related to the stock investment, make sure to call the frontend tool render_standard_charts_and_table with the tool argument render_standard_charts_and_table_args as the tool argument to the frontend after running the generate_insights tool"""
+            If user didnt specify the investment date, assume the previously stated investment date or ask the user to specify the investment date.
+            Use the tools provided effectively to answer the user query.
+            When user asks something related to the stock investment, make sure to call the frontend tool render_standard_charts_and_table with the tool argument render_standard_charts_and_table_args as the tool argument to the frontend after running the generate_insights tool"""
     )
 
 
@@ -112,13 +113,8 @@ async def gather_stock_data(
     to_be_replaced: list[str],
 ) -> StateSnapshotEvent:
     """
-    This tool is used for the chat purposes. If the user query is not related to the stock portfolio, you should use this tool to answer the question. The answers should be generic and should be relevant to the user query.
-
-    Args:
-        ctx (RunContext[StateDeps[AgentState]]): _description_
-
-    Returns:
-        StateSnapshotEvent: _description_
+    This tool is used to gather the stock data from the backend.
+    If user didnt specify the investment date, assume the previously stated investment date or ask the user to specify the investment date.
     """
     changes = []
 
@@ -496,4 +492,4 @@ async def generate_insights(
     ]
 
 
-pydantic_agent = agent.to_ag_ui(deps=StateDeps(AgentState()))
+# pydantic_agent = agent.to_ag_ui(deps=StateDeps(AgentState()))
