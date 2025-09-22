@@ -20,12 +20,6 @@ from pydantic_ai.ag_ui import handle_ag_ui_request
 load_dotenv()
 app = FastAPI()
 
-# app.mount(
-#     "/pydantic-agent",
-#     pydantic_agent,
-#     "pydantic agent",
-# )
-
 @app.post('/pydantic-agent')
 async def run_agent(request: Request) -> Response:
     return await handle_ag_ui_request(agent = agent, deps = StateDeps(AgentState()), request=request)

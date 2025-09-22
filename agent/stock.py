@@ -490,6 +490,3 @@ async def generate_insights(
             ],
         ),
     ]
-
-
-# pydantic_agent = agent.to_ag_ui(deps=StateDeps(AgentState()))
